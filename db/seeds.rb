@@ -33,3 +33,24 @@ if File.exist?(products_file)
 else
   puts "products.json not found"
 end
+contents_file = Rails.root.join("contents.json")
+
+if File.exist?(contents_file)
+  contents = JSON.parse(File.read(contents_file))
+
+  contents.each do |content|
+    record = Content.find_or_initialize_by(id: content["id"])
+
+    content.each do |key, value|
+      next if ["id", "created_at", "updated_at"].include?(key)
+
+      record[key] = value
+    end
+
+    record.save!
+  end
+
+  puts "Imported #{contents.count} contents"
+else
+  puts "contents.json not found"
+end
