@@ -47,21 +47,24 @@ class Api::V1::PaymentsController < ApplicationController
   end
 
   def success
-    Rails.logger.info "PAYU SUCCESS RESPONSE: #{params.to_unsafe_h}"
-    order = Order.find_by(txnid: params[:txnid])
-    
-    # PayU returns status in params[:status]
-    if order && params[:status].to_s.downcase == "success"
-      order.update!(status: "paid")
-    end
+  Rails.logger.info "PAYU SUCCESS RESPONSE: #{params.to_unsafe_h}"
 
-    redirect_to "#{frontend_url}/payment-success?status=#{ERB::Util.url_encode(order ? order.status : 'paid')}"
+  order = Order.find_by(txnid: params[:txnid])
+
+  if order && params[:status].to_s.downcase == "success"
+    order.update!(status: "paid")
   end
+
+  redirect_to(
+    "#{frontend_url}/payment-success?status=#{ERB::Util.url_encode(order ? order.status : 'paid')}",
+    allow_other_host: true
+  )
+end
 
   def failure
     Rails.logger.info "PAYU FAILURE RESPONSE: #{params.to_unsafe_h}"
     Order.find_by(txnid: params[:txnid])&.update!(status: "failed")
-    redirect_to "#{frontend_url}/payment-failure"
+ redirect_to "#{frontend_url}/payment-failure", allow_other_host: true
   end
 
   private
