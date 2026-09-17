@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_09_09_000000) do
+ActiveRecord::Schema[8.1].define(version: 2026_09_15_000000) do
   create_table "active_admin_comments", force: :cascade do |t|
     t.integer "author_id"
     t.string "author_type"
@@ -83,6 +83,18 @@ ActiveRecord::Schema[8.1].define(version: 2026_09_09_000000) do
     t.datetime "updated_at", null: false
   end
 
+  create_table "orders", force: :cascade do |t|
+    t.decimal "amount", precision: 10, scale: 2, null: false
+    t.datetime "created_at", null: false
+    t.text "items", default: "[]", null: false
+    t.string "status", default: "pending", null: false
+    t.string "txnid", null: false
+    t.datetime "updated_at", null: false
+    t.integer "user_id"
+    t.index ["txnid"], name: "index_orders_on_txnid", unique: true
+    t.index ["user_id"], name: "index_orders_on_user_id"
+  end
+
   create_table "otps", force: :cascade do |t|
     t.datetime "created_at", null: false
     t.datetime "expires_at"
@@ -138,4 +150,5 @@ ActiveRecord::Schema[8.1].define(version: 2026_09_09_000000) do
 
   add_foreign_key "active_storage_attachments", "active_storage_blobs", column: "blob_id"
   add_foreign_key "active_storage_variant_records", "active_storage_blobs", column: "blob_id"
+  add_foreign_key "orders", "users"
 end
