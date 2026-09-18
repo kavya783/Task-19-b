@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_09_15_000000) do
+ActiveRecord::Schema[8.1].define(version: 2026_09_18_084627) do
   create_table "active_admin_comments", force: :cascade do |t|
     t.integer "author_id"
     t.string "author_type"
@@ -81,6 +81,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_09_15_000000) do
     t.string "subcategory"
     t.string "subheading"
     t.datetime "updated_at", null: false
+    t.index ["category"], name: "index_contents_on_category"
   end
 
   create_table "orders", force: :cascade do |t|
@@ -92,6 +93,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_09_15_000000) do
     t.datetime "updated_at", null: false
     t.integer "user_id"
     t.index ["txnid"], name: "index_orders_on_txnid", unique: true
+    t.index ["user_id", "created_at"], name: "index_orders_on_user_id_and_created_at"
     t.index ["user_id"], name: "index_orders_on_user_id"
   end
 
@@ -102,6 +104,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_09_15_000000) do
     t.string "phone"
     t.string "status"
     t.datetime "updated_at", null: false
+    t.index ["phone", "status", "created_at"], name: "index_otps_on_phone_and_status_and_created_at"
   end
 
   create_table "products", force: :cascade do |t|
@@ -128,6 +131,8 @@ ActiveRecord::Schema[8.1].define(version: 2026_09_15_000000) do
     t.datetime "updated_at", null: false
     t.string "usp"
     t.text "variants"
+    t.index ["category"], name: "index_products_on_category"
+    t.index ["created_at"], name: "index_products_on_created_at"
   end
 
   create_table "sellers", force: :cascade do |t|
