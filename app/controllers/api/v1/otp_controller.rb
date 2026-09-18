@@ -11,16 +11,19 @@ class Api::V1::OtpController < ApplicationController
       }, status: :bad_request
     end
 
-    # Seller number already registered or not
-    seller = Seller.find_by(phone: phone)
+    # Check whether seller already exists
+    seller = Seller
+      .select(:id)
+      .find_by(phone: phone)
 
-    # User number already registered or not
-    user = User.find_by(phone: phone)
+    # Check whether user already exists
+    user = User
+      .select(:id)
+      .find_by(phone: phone)
 
-   
     otp = rand(100000..999999).to_s
 
-    otp_record = Otp.create!(
+    Otp.create!(
       phone: phone,
       otp: otp,
       status: "pending",
@@ -48,12 +51,14 @@ class Api::V1::OtpController < ApplicationController
     end
 
     # Find latest pending and non-expired OTP
-    otp_record = Otp.where(
-      phone: phone,
-      status: "pending"
-    ).where(
-      "expires_at > ?", Time.current
-    ).order(created_at: :desc).first
+    otp_record = Otp
+      .where(
+        phone: phone,
+        status: "pending"
+      )
+      .where("expires_at > ?", Time.current)
+      .order(created_at: :desc)
+      .first
 
     unless otp_record
       return render json: {
@@ -73,7 +78,15 @@ class Api::V1::OtpController < ApplicationController
     # Mark OTP as verified
     otp_record.update!(status: "verified")
 
-    seller = Seller.find_by(phone: phone)
+    # Check existing seller
+    seller = Seller
+      .select(
+        :id,
+        :phone,
+        :name,
+        :email
+      )
+      .find_by(phone: phone)
 
     if seller
       return render json: {
@@ -89,26 +102,34 @@ class Api::V1::OtpController < ApplicationController
       }, status: :ok
     end
 
-    user = User.find_by(phone: phone)
+    # Check existing user
+    user = User
+      .select(
+        :id,
+        :phone,
+        :name,
+        :email,
+        :role
+      )
+      .find_by(phone: phone)
 
-    # Existing user
-  if user
-  return render json: {
-    success: true,
-    message: "User OTP verified successfully",
-    user: {
-      id: user.id,
-      phone: user.phone,
-      name: user.name,
-      email: user.email,
-      role: user.role
-    }
-  }, status: :ok
-end
+    if user
+      return render json: {
+        success: true,
+        message: "User OTP verified successfully",
+        user: {
+          id: user.id,
+          phone: user.phone,
+          name: user.name,
+          email: user.email,
+          role: user.role
+        }
+      }, status: :ok
+    end
 
+    # Create new user
     user = User.create!(
-      phone: phone,
-     
+      phone: phone
     )
 
     render json: {

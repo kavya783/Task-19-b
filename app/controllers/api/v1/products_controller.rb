@@ -1,10 +1,36 @@
-
 class Api::V1::ProductsController < ApplicationController
   skip_forgery_protection
 
   # GET /api/v1/products
   def index
-    products = Product.order(created_at: :desc)
+    products = Product
+      .select(
+        :id,
+        :badge,
+        :benefits,
+        :category,
+        :created_at,
+        :description,
+        :discount_percentage,
+        :discount_price,
+        :heading,
+        :image_urls,
+        :mrp,
+        :name,
+        :net_content,
+        :price,
+        :rating,
+        :return_policy,
+        :reviews,
+        :sale_price,
+        :shipping_info,
+        :status,
+        :suitable_for,
+        :updated_at,
+        :usp,
+        :variants
+      )
+      .order(created_at: :desc)
 
     render json: {
       products: products

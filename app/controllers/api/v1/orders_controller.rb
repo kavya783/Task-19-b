@@ -1,8 +1,19 @@
 class Api::V1::OrdersController < ApplicationController
   skip_before_action :verify_authenticity_token
 
+  # GET /api/v1/users/:user_id/orders
   def index
-    orders = Order.where(user_id: params[:user_id]).order(created_at: :desc)
+    orders = Order
+      .where(user_id: params[:user_id])
+      .select(
+        :id,
+        :txnid,
+        :amount,
+        :status,
+        :items,
+        :created_at
+      )
+      .order(created_at: :desc)
 
     render json: orders.map { |order|
       {
@@ -16,6 +27,7 @@ class Api::V1::OrdersController < ApplicationController
     }
   end
 
+  # DELETE /api/v1/orders/:id
   def destroy
     order = Order.find(params[:id])
     order.destroy!
@@ -26,11 +38,18 @@ class Api::V1::OrdersController < ApplicationController
   end
 
   private
+
   def normalize_item(item)
     image_urls = item["image_urls"] || item["images"] || []
+
     image_urls = JSON.parse(image_urls) if image_urls.is_a?(String)
+
     image_urls = [image_urls] unless image_urls.is_a?(Array)
-    image_urls = image_urls.compact.map(&:to_s).reject(&:blank?)
+
+    image_urls = image_urls
+      .compact
+      .map(&:to_s)
+      .reject(&:blank?)
 
     {
       id: item["id"],
@@ -39,7 +58,9 @@ class Api::V1::OrdersController < ApplicationController
       image_urls: image_urls,
       image_url: image_urls.first,
       sale_price: item["sale_price"].presence,
-      price: item["price"].presence || item["discount_price"].presence || item["mrp"],
+      price: item["price"].presence ||
+             item["discount_price"].presence ||
+             item["mrp"],
       quantity: item["quantity"].to_i > 0 ? item["quantity"].to_i : 1
     }
   rescue JSON::ParserError
