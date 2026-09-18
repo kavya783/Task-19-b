@@ -26,5 +26,15 @@ Rails.application.configure do
 
     policy.frame_src :self,
                      :https
+
+    policy.frame_ancestors :self
+
+    policy.base_uri :self
+
+    policy.form_action :self,
+                       :https
+
+    # Trusted Types
+    policy.require_trusted_types_for :script
   end
 end
