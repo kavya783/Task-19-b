@@ -55,40 +55,42 @@ class Api::V1::PaymentsController < ApplicationController
   end
 
   # GET/POST /api/v1/payments/success
-  def success
-    Rails.logger.info "PAYU SUCCESS RESPONSE: #{params.to_unsafe_h}"
+  # GET/POST /api/v1/payments/success
+def success
+  Rails.logger.info "PAYU SUCCESS RESPONSE: #{params.to_unsafe_h}"
 
-    order = Order
-      .select(:id, :status)
-      .find_by(txnid: params[:txnid])
+  order = Order
+    .select(:id, :txnid, :status)
+    .find_by(txnid: params[:txnid])
 
-    if order && params[:status].to_s.downcase == "success"
-      order.update!(status: "paid")
-    end
-
-    status = order ? order.status : "paid"
-
-    redirect_to(
-      "#{frontend_url}/payment-success?status=#{ERB::Util.url_encode(status)}",
-      allow_other_host: true
-    )
+  if order && params[:status].to_s.downcase == "success"
+    order.update!(status: "paid")
   end
+
+  status = order ? order.status : "paid"
+
+  redirect_to(
+    "#{frontend_url}/payment-success?status=#{ERB::Util.url_encode(status)}",
+    allow_other_host: true
+  )
+end
 
   # GET/POST /api/v1/payments/failure
-  def failure
-    Rails.logger.info "PAYU FAILURE RESPONSE: #{params.to_unsafe_h}"
+ # GET/POST /api/v1/payments/failure
+def failure
+  Rails.logger.info "PAYU FAILURE RESPONSE: #{params.to_unsafe_h}"
 
-    order = Order
-      .select(:id)
-      .find_by(txnid: params[:txnid])
+  order = Order
+    .select(:id, :txnid)
+    .find_by(txnid: params[:txnid])
 
-    order&.update!(status: "failed")
+  order&.update!(status: "failed")
 
-    redirect_to(
-      "#{frontend_url}/payment-failure",
-      allow_other_host: true
-    )
-  end
+  redirect_to(
+    "#{frontend_url}/payment-failure",
+    allow_other_host: true
+  )
+end
 
   private
 
