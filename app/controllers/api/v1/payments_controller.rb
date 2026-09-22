@@ -7,6 +7,7 @@ class Api::V1::PaymentsController < ApplicationController
 
     # Format amount correctly for PayU hash
     amt_float = params[:amount].to_f
+
     amount =
       if amt_float % 1 == 0
         amt_float.to_i.to_s
@@ -55,45 +56,47 @@ class Api::V1::PaymentsController < ApplicationController
   end
 
   # GET/POST /api/v1/payments/success
-  # GET/POST /api/v1/payments/success
-def success
-  Rails.logger.info "PAYU SUCCESS RESPONSE: #{params.to_unsafe_h}"
+  def success
+    Rails.logger.info "PAYU SUCCESS RESPONSE: #{params.to_unsafe_h}"
 
-  order = Order
-    .select(:id, :txnid, :status)
-    .find_by(txnid: params[:txnid])
+    # Fetch complete order because update/callback logic
+    # may access other Order attributes.
+    order = Order.find_by(txnid: params[:txnid])
 
-  if order && params[:status].to_s.downcase == "success"
-    order.update!(status: "paid")
+    if order && params[:status].to_s.downcase == "success"
+      order.update!(status: "paid")
+    end
+
+    status = order ? order.status : "paid"
+
+    redirect_to(
+      "#{frontend_url}/payment-success?status=#{ERB::Util.url_encode(status)}",
+      allow_other_host: true
+    )
   end
 
-  status = order ? order.status : "paid"
-
-  redirect_to(
-    "#{frontend_url}/payment-success?status=#{ERB::Util.url_encode(status)}",
-    allow_other_host: true
-  )
-end
-
   # GET/POST /api/v1/payments/failure
- # GET/POST /api/v1/payments/failure
-def failure
-  Rails.logger.info "PAYU FAILURE RESPONSE: #{params.to_unsafe_h}"
+  def failure
+    Rails.logger.info "PAYU FAILURE RESPONSE: #{params.to_unsafe_h}"
 
-  order = Order
-    .select(:id, :txnid)
-    .find_by(txnid: params[:txnid])
+    order = Order.find_by(txnid: params[:txnid])
 
-  order&.update!(status: "failed")
+    order&.update!(status: "failed")
 
-  redirect_to(
-    "#{frontend_url}/payment-failure",
-    allow_other_host: true
-  )
-end
+    redirect_to(
+      "#{frontend_url}/payment-failure",
+      allow_other_host: true
+    )
+  end
 
   private
 
+  # Backend URL
+  # Local:
+  # http://localhost:3000
+  #
+  # Render:
+  # https://task-19-b.onrender.com
   def backend_url
     ENV.fetch(
       "BACKEND_URL",
@@ -101,6 +104,12 @@ end
     ).chomp("/")
   end
 
+  # Frontend URL
+  # Local:
+  # http://localhost:3001
+  #
+  # Render:
+  # https://task-19-628h.onrender.com
   def frontend_url
     ENV.fetch(
       "FRONTEND_URL",
