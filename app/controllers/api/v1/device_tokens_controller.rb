@@ -24,4 +24,4 @@ class Api::V1::DeviceTokensController < ApplicationController
       }, status: :unprocessable_entity
     end
   end
-end
+end 
