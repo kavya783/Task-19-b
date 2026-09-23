@@ -9,22 +9,6 @@ class Api::V1::DeviceTokensController < ApplicationController
     device_token.user_id = params[:user_id]
 
     if device_token.save
-
-      # Send welcome notification after FCM token is saved
-      user = User.find_by(id: device_token.user_id)
-
-      if user
-        FirebaseNotificationService.send_notification(
-          device_token.token,
-          "Welcome #{user.name.presence || 'User'}",
-          "Welcome to Mamaearth!"
-        )
-
-        Rails.logger.info(
-          "✅ Welcome notification sent to user: #{user.id}"
-        )
-      end
-
       render json: {
         success: true,
         message: "Device token saved successfully",
@@ -33,8 +17,7 @@ class Api::V1::DeviceTokensController < ApplicationController
           user_id: device_token.user_id
         }
       }, status: :ok
-
-    else  
+    else
       render json: {
         success: false,
         errors: device_token.errors.full_messages
