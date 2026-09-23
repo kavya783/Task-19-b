@@ -7,7 +7,6 @@ class Api::V1::PaymentsController < ApplicationController
 
     # Format amount correctly for PayU hash
     amt_float = params[:amount].to_f
-
     amount =
       if amt_float % 1 == 0
         amt_float.to_i.to_s
@@ -56,30 +55,113 @@ class Api::V1::PaymentsController < ApplicationController
   end
 
   # GET/POST /api/v1/payments/success
-  def success
-    Rails.logger.info "PAYU SUCCESS RESPONSE: #{params.to_unsafe_h}"
+ 
+def success
+  Rails.logger.info(
+    "PAYU SUCCESS RESPONSE: #{params.to_unsafe_h}"
+  )
 
-    # Fetch complete order because update/callback logic
-    # may access other Order attributes.
-    order = Order.find_by(txnid: params[:txnid])
+  order = Order
+    .select(
+      :id,
+      :txnid,
+      :status,
+      :user_id,
+      :amount
+    )
+    .find_by(
+      txnid: params[:txnid]
+    )
 
-    if order && params[:status].to_s.downcase == "success"
-      order.update!(status: "paid")
+  if order &&
+     params[:status].to_s.downcase == "success"
+
+   
+    # UPDATE ORDER STATUS
+   
+
+    order.update!(
+      status: "paid"
+    )
+
+    Rails.logger.info(
+      "ORDER PAYMENT SUCCESSFUL: #{order.id}"
+    )
+
+   
+    # SEND ORDER CONFIRMED PUSH NOTIFICATION
+   
+
+    if order.user_id.present?
+      OrderConfirmedNotificationJob
+        .set(wait: 3.seconds)
+        .perform_later(
+          order.user_id,
+          order.id
+        )
+
+      Rails.logger.info(
+        "🔔 ORDER CONFIRMATION NOTIFICATION ENQUEUED FOR USER: #{order.user_id}"
+      )
+    else
+      Rails.logger.info(
+        "❌ No user associated with order: #{order.id}"
+      )
     end
 
-    status = order ? order.status : "paid"
+   
+    # SEND ORDER CONFIRMATION EMAIL
+   
 
-    redirect_to(
-      "#{frontend_url}/payment-success?status=#{ERB::Util.url_encode(status)}",
-      allow_other_host: true
-    )
+    user = User
+      .select(
+        :id,
+        :name,
+        :email
+      )
+      .find_by(
+        id: order.user_id
+      )
+
+    if user&.email.present?
+
+      UserMailer
+        .with(
+          user: user,
+          order: order
+        )
+        .order_confirmed
+        .deliver_now
+
+      Rails.logger.info(
+        "📧 ORDER CONFIRMATION EMAIL SENT TO: #{user.email}"
+      )
+
+    else
+
+      Rails.logger.info(
+        "No email found for order user: #{order.user_id}"
+      )
+
+    end
   end
+
+  status = order ? order.status : "paid"
+
+  redirect_to(
+    "#{frontend_url}/payment-success?status=#{ERB::Util.url_encode(status)}",
+    allow_other_host: true
+  )
+end
+
 
   # GET/POST /api/v1/payments/failure
   def failure
     Rails.logger.info "PAYU FAILURE RESPONSE: #{params.to_unsafe_h}"
 
-    order = Order.find_by(txnid: params[:txnid])
+    order = Order
+      .select(:id)
+      .find_by(txnid: params[:txnid])
 
     order&.update!(status: "failed")
 
@@ -91,12 +173,6 @@ class Api::V1::PaymentsController < ApplicationController
 
   private
 
-  # Backend URL
-  # Local:
-  # http://localhost:3000
-  #
-  # Render:
-  # https://task-19-b.onrender.com
   def backend_url
     ENV.fetch(
       "BACKEND_URL",
@@ -104,12 +180,6 @@ class Api::V1::PaymentsController < ApplicationController
     ).chomp("/")
   end
 
-  # Frontend URL
-  # Local:
-  # http://localhost:3001
-  #
-  # Render:
-  # https://task-19-628h.onrender.com
   def frontend_url
     ENV.fetch(
       "FRONTEND_URL",

@@ -11,14 +11,12 @@ class Api::V1::OtpController < ApplicationController
       }, status: :bad_request
     end
 
-    # Check whether seller already exists
     seller = Seller
-      .select(:id)
+      .select(:id, :email, :name, :phone)
       .find_by(phone: phone)
 
-    # Check whether user already exists
     user = User
-      .select(:id)
+      .select(:id, :email, :name, :phone)
       .find_by(phone: phone)
 
     otp = rand(100000..999999).to_s
@@ -40,108 +38,118 @@ class Api::V1::OtpController < ApplicationController
   end
 
   def verify_otp
-    phone = normalize_phone(params[:phone])
-    entered_otp = params[:otp].to_s
+  phone = normalize_phone(params[:phone])
+  entered_otp = params[:otp].to_s
 
-    if phone.blank? || entered_otp.blank?
-      return render json: {
-        success: false,
-        message: "Phone and OTP are required"
-      }, status: :bad_request
-    end
+  if phone.blank? || entered_otp.blank?
+    return render json: {
+      success: false,
+      message: "Phone and OTP are required"
+    }, status: :bad_request
+  end
 
-    # Find latest pending and non-expired OTP
-    otp_record = Otp
-      .where(
-        phone: phone,
-        status: "pending"
-      )
-      .where("expires_at > ?", Time.current)
-      .order(created_at: :desc)
-      .first
-
-    unless otp_record
-      return render json: {
-        success: false,
-        message: "OTP not found or expired"
-      }, status: :unauthorized
-    end
-
-    # Check OTP
-    unless otp_record.otp == entered_otp
-      return render json: {
-        success: false,
-        message: "Invalid OTP"
-      }, status: :unauthorized
-    end
-
-    # Mark OTP as verified
-    otp_record.update!(status: "verified")
-
-    # Check existing seller
-    seller = Seller
-      .select(
-        :id,
-        :phone,
-        :name,
-        :email
-      )
-      .find_by(phone: phone)
-
-    if seller
-      return render json: {
-        success: true,
-        message: "Seller OTP verified successfully",
-        user: {
-          id: seller.id,
-          phone: seller.phone,
-          name: seller.name,
-          email: seller.email,
-          role: "seller"
-        }
-      }, status: :ok
-    end
-
-    # Check existing user
-    user = User
-      .select(
-        :id,
-        :phone,
-        :name,
-        :email,
-        :role
-      )
-      .find_by(phone: phone)
-
-    if user
-      return render json: {
-        success: true,
-        message: "User OTP verified successfully",
-        user: {
-          id: user.id,
-          phone: user.phone,
-          name: user.name,
-          email: user.email,
-          role: user.role
-        }
-      }, status: :ok
-    end
-
-    # Create new user
-    user = User.create!(
-      phone: phone
+  otp_record = Otp
+    .where(
+      phone: phone,
+      status: "pending"
     )
+    .where("expires_at > ?", Time.current)
+    .order(created_at: :desc)
+    .first
 
-    render json: {
+  unless otp_record
+    return render json: {
+      success: false,
+      message: "OTP not found or expired"
+    }, status: :unauthorized
+  end
+
+  unless otp_record.otp == entered_otp
+    return render json: {
+      success: false,
+      message: "Invalid OTP"
+    }, status: :unauthorized
+  end
+
+  # OTP verified successfully
+  otp_record.update!(status: "verified")
+
+  # Check existing seller
+  seller = Seller
+    .select(
+      :id,
+      :phone,
+      :name,
+      :email
+    )
+    .find_by(phone: phone)
+
+  if seller
+    return render json: {
       success: true,
-      message: "User created and OTP verified successfully",
+      message: "Login successful",
+      user: {
+        id: seller.id,
+        phone: seller.phone,
+        name: seller.name,
+        email: seller.email,
+        role: "seller"
+      }
+    }, status: :ok
+  end
+
+  # Check existing user
+  user = User
+    .select(
+      :id,
+      :phone,
+      :name,
+      :email,
+      :role
+    )
+    .find_by(phone: phone)
+
+  if user
+
+    # Welcome push notification after 3 seconds
+    WelcomeNotificationJob
+      .set(wait: 3.seconds)
+      .perform_later(user.id)
+
+    return render json: {
+      success: true,
+      message: "Login successful",
       user: {
         id: user.id,
         phone: user.phone,
+        name: user.name,
+        email: user.email,
         role: user.role
       }
     }, status: :ok
   end
+
+  # Create new user
+  user = User.create!(
+    phone: phone
+  )
+
+  # Welcome push notification after 3 seconds
+  WelcomeNotificationJob
+    .set(wait: 3.seconds)
+    .perform_later(user.id)
+
+  render json: {
+    success: true,
+    message: "Login successful",
+    user: {
+      id: user.id,
+      phone: user.phone,
+      name: user.name,
+      role: user.role
+    }
+  }, status: :ok
+end
 
   private
 
