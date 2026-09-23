@@ -2,40 +2,28 @@ class Api::V1::DeviceTokensController < ApplicationController
   skip_before_action :verify_authenticity_token
 
   def create
-    Rails.logger.info "================================"
-    Rails.logger.info "DEVICE TOKEN CREATE"
-    Rails.logger.info "Params: #{params.inspect}"
-    Rails.logger.info "================================"
-
-    token = params[:token]
-    user_id = params[:user_id]
-
-    if token.blank?
-      render json: {
-        success: false,
-        message: "FCM token is required"
-      }, status: :unprocessable_entity
-      return
-    end
-
-    if user_id.blank?
-      render json: {
-        success: false,
-        message: "User ID is required"
-      }, status: :unprocessable_entity
-      return
-    end
-
     device_token = DeviceToken.find_or_initialize_by(
-      token: token
+      token: params[:token]
     )
 
-    device_token.user_id = user_id
+    device_token.user_id = params[:user_id]
 
     if device_token.save
-      Rails.logger.info "✅ DEVICE TOKEN SAVED"
-      Rails.logger.info "Token ID: #{device_token.id}"
-      Rails.logger.info "User ID: #{device_token.user_id}"
+
+      # Send welcome notification after FCM token is saved
+      user = User.find_by(id: device_token.user_id)
+
+      if user
+        FirebaseNotificationService.send_notification(
+          device_token.token,
+          "Welcome #{user.name.presence || 'User'}",
+          "Welcome to Mamaearth!"
+        )
+
+        Rails.logger.info(
+          "✅ Welcome notification sent to user: #{user.id}"
+        )
+      end
 
       render json: {
         success: true,
@@ -45,10 +33,8 @@ class Api::V1::DeviceTokensController < ApplicationController
           user_id: device_token.user_id
         }
       }, status: :ok
-    else
-      Rails.logger.error "❌ DEVICE TOKEN SAVE FAILED"
-      Rails.logger.error device_token.errors.full_messages
 
+    else  
       render json: {
         success: false,
         errors: device_token.errors.full_messages
