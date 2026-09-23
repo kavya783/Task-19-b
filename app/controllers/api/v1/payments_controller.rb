@@ -7,6 +7,7 @@ class Api::V1::PaymentsController < ApplicationController
 
     # Format amount correctly for PayU hash
     amt_float = params[:amount].to_f
+
     amount =
       if amt_float % 1 == 0
         amt_float.to_i.to_s
@@ -14,15 +15,22 @@ class Api::V1::PaymentsController < ApplicationController
         format("%.2f", amt_float)
       end
 
-    productinfo = params[:productinfo].to_s.presence || "Mamaearth Order"
-    firstname = params[:firstname].to_s.presence || "Customer"
-    email = params[:email].to_s.presence || "customer@example.com"
-    phone = params[:phone].to_s.presence || "9999999999"
+    productinfo =
+      params[:productinfo].to_s.presence || "Mamaearth Order"
 
-    # Normalize items only once
+    firstname =
+      params[:firstname].to_s.presence || "Customer"
+
+    email =
+      params[:email].to_s.presence || "customer@example.com"
+
+    phone =
+      params[:phone].to_s.presence || "9999999999"
+
+    # Normalize items
     normalized_items = normalize_items(params[:items])
 
-    # Save order
+    # Create pending order
     Order.create!(
       user_id: params[:user_id].presence,
       txnid: txnid,
@@ -55,115 +63,143 @@ class Api::V1::PaymentsController < ApplicationController
   end
 
   # GET/POST /api/v1/payments/success
- 
-def success
-  Rails.logger.info(
-    "PAYU SUCCESS RESPONSE: #{params.to_unsafe_h}"
-  )
-
-  order = Order
-    .select(
-      :id,
-      :txnid,
-      :status,
-      :user_id,
-      :amount
-    )
-    .find_by(
-      txnid: params[:txnid]
-    )
-
-  if order &&
-     params[:status].to_s.downcase == "success"
-
-   
-    # UPDATE ORDER STATUS
-   
-
-    order.update!(
-      status: "paid"
-    )
-
+  def success
     Rails.logger.info(
-      "ORDER PAYMENT SUCCESSFUL: #{order.id}"
+      "PAYU SUCCESS RESPONSE: #{params.to_unsafe_h}"
     )
 
-   
-    # SEND ORDER CONFIRMED PUSH NOTIFICATION
-   
-
-    if order.user_id.present?
-      OrderConfirmedNotificationJob
-        .set(wait: 3.seconds)
-        .perform_later(
-          order.user_id,
-          order.id
-        )
-
-      Rails.logger.info(
-        "🔔 ORDER CONFIRMATION NOTIFICATION ENQUEUED FOR USER: #{order.user_id}"
-      )
-    else
-      Rails.logger.info(
-        "❌ No user associated with order: #{order.id}"
-      )
-    end
-
-   
-    # SEND ORDER CONFIRMATION EMAIL
-   
-
-    user = User
+    order = Order
       .select(
         :id,
-        :name,
-        :email
+        :txnid,
+        :status,
+        :user_id,
+        :amount
       )
       .find_by(
-        id: order.user_id
+        txnid: params[:txnid]
       )
 
-    if user&.email.present?
+    # Payment successful
+    if order &&
+       params[:status].to_s.downcase == "success"
 
-      UserMailer
-        .with(
-          user: user,
-          order: order
+      # Check previous status before changing it
+      was_already_paid = order.status.to_s == "paid"
+
+      # Update order status
+      order.update!(
+        status: "paid"
+      )
+
+      Rails.logger.info(
+        "✅ ORDER PAYMENT SUCCESSFUL: #{order.id}"
+      )
+
+      # ------------------------------------------------
+      # ORDER CONFIRMED PUSH NOTIFICATION
+      # ------------------------------------------------
+
+      unless was_already_paid
+
+        if order.user_id.present?
+
+          OrderConfirmedNotificationJob
+            .set(wait: 3.seconds)
+            .perform_later(
+              order.user_id,
+              order.id
+            )
+
+          Rails.logger.info(
+            "🔔 ORDER CONFIRMATION NOTIFICATION ENQUEUED " \
+            "FOR USER: #{order.user_id}, ORDER: #{order.id}"
+          )
+
+        else
+
+          Rails.logger.info(
+            "❌ No user associated with order: #{order.id}"
+          )
+
+        end
+
+      else
+
+        Rails.logger.info(
+          "ℹ️ Order #{order.id} was already paid. " \
+          "Notification will not be sent again."
         )
-        .order_confirmed
-        .deliver_now
 
-      Rails.logger.info(
-        "📧 ORDER CONFIRMATION EMAIL SENT TO: #{user.email}"
-      )
+      end
 
-    else
+      # ------------------------------------------------
+      # ORDER CONFIRMATION EMAIL
+      # ------------------------------------------------
 
-      Rails.logger.info(
-        "No email found for order user: #{order.user_id}"
-      )
+      user = User
+        .select(
+          :id,
+          :name,
+          :email
+        )
+        .find_by(
+          id: order.user_id
+        )
 
+      if user&.email.present?
+
+        UserMailer
+          .with(
+            user: user,
+            order: order
+          )
+          .order_confirmed
+          .deliver_now
+
+        Rails.logger.info(
+          "📧 ORDER CONFIRMATION EMAIL SENT TO: #{user.email}"
+        )
+
+      else
+
+        Rails.logger.info(
+          "ℹ️ No email found for order user: #{order.user_id}"
+        )
+
+      end
     end
+
+    status = order ? order.status : "paid"
+
+    redirect_to(
+      "#{frontend_url}/payment-success" \
+      "?status=#{ERB::Util.url_encode(status)}",
+      allow_other_host: true
+    )
   end
-
-  status = order ? order.status : "paid"
-
-  redirect_to(
-    "#{frontend_url}/payment-success?status=#{ERB::Util.url_encode(status)}",
-    allow_other_host: true
-  )
-end
-
 
   # GET/POST /api/v1/payments/failure
   def failure
-    Rails.logger.info "PAYU FAILURE RESPONSE: #{params.to_unsafe_h}"
+    Rails.logger.info(
+      "PAYU FAILURE RESPONSE: #{params.to_unsafe_h}"
+    )
 
     order = Order
       .select(:id)
-      .find_by(txnid: params[:txnid])
+      .find_by(
+        txnid: params[:txnid]
+      )
 
-    order&.update!(status: "failed")
+    if order
+      order.update!(
+        status: "failed"
+      )
+
+      Rails.logger.info(
+        "❌ ORDER PAYMENT FAILED: #{order.id}"
+      )
+    end
 
     redirect_to(
       "#{frontend_url}/payment-failure",
@@ -189,7 +225,11 @@ end
 
   def normalize_items(items)
     Array(items).map do |item|
-      item.respond_to?(:to_unsafe_h) ? item.to_unsafe_h : item.to_h
+      if item.respond_to?(:to_unsafe_h)
+        item.to_unsafe_h
+      else
+        item.to_h
+      end
     end
   end
 end
