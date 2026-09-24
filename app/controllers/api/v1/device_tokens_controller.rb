@@ -9,6 +9,27 @@ class Api::V1::DeviceTokensController < ApplicationController
     device_token.user_id = params[:user_id]
 
     if device_token.save
+
+      user = User.find_by(
+        id: device_token.user_id
+      )
+
+      if user
+        FirebaseNotificationService.send_notification(
+          device_token.token,
+          "Welcome #{user.name.presence || 'User'}",
+          "Welcome to Mamaearth!"
+        )
+
+        Rails.logger.info(
+          "✅ Welcome notification sent to user: #{user.id}"
+        )
+      else
+        Rails.logger.info(
+          "❌ User not found: #{device_token.user_id}"
+        )
+      end
+
       render json: {
         success: true,
         message: "Device token saved successfully",
@@ -17,6 +38,7 @@ class Api::V1::DeviceTokensController < ApplicationController
           user_id: device_token.user_id
         }
       }, status: :ok
+
     else
       render json: {
         success: false,
@@ -24,4 +46,4 @@ class Api::V1::DeviceTokensController < ApplicationController
       }, status: :unprocessable_entity
     end
   end
-end 
+end
