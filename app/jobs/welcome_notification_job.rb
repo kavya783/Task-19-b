@@ -10,7 +10,7 @@ class WelcomeNotificationJob < ApplicationJob
       user_id: user.id
     ).pluck(:token)
 
-    puts " Device tokens found: #{device_tokens.count}"
+    puts "Device tokens found: #{device_tokens.count}"
 
     device_tokens.each do |token|
       FirebaseNotificationService.send_notification(

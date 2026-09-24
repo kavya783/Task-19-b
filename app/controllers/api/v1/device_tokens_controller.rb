@@ -37,6 +37,13 @@ class Api::V1::DeviceTokensController < ApplicationController
       Rails.logger.info "Token ID: #{device_token.id}"
       Rails.logger.info "User ID: #{device_token.user_id}"
 
+      # 👇 ADD THIS
+      WelcomeNotificationJob
+        .set(wait: 3.seconds)
+        .perform_later(user_id)
+
+      Rails.logger.info "✅ WelcomeNotificationJob scheduled"
+
       render json: {
         success: true,
         message: "Device token saved successfully",
