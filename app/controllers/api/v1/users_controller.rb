@@ -7,7 +7,20 @@ class Api::V1::UsersController < ApplicationController
       .select(:id, :name, :email, :phone, :role)
       .find(params[:id])
 
+    old_email = user.email
+
     if user.update(user_params)
+
+      # Send email only when email is added for the first time
+      if old_email.blank? && user.email.present?
+        UserMailer
+          .with(user: user)
+          .login_success
+          .deliver_now
+
+        Rails.logger.info "PROFILE EMAIL ADDED - EMAIL SENT TO: #{user.email}"
+      end
+
       render json: {
         success: true,
         message: "Profile updated successfully",
@@ -19,6 +32,7 @@ class Api::V1::UsersController < ApplicationController
           role: user.role
         }
       }, status: :ok
+
     else
       render json: {
         success: false,

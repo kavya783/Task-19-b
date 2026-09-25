@@ -1,7 +1,21 @@
 class Order < ApplicationRecord
+
   belongs_to :user, optional: true
 
   validates :txnid, :amount, :status, presence: true
+
+  def self.ransackable_attributes(auth_object = nil)
+    [
+      "id",
+      "txnid",
+      "amount",
+      "status",
+      "items",
+      "user_id",
+      "created_at",
+      "updated_at"
+    ]
+  end
 
   def items_data
     parsed_items = JSON.parse(items.presence || "[]")
@@ -26,4 +40,5 @@ class Order < ApplicationRecord
   rescue JSON::ParserError
     nil
   end
+
 end
