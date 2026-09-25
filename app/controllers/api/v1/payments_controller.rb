@@ -76,10 +76,6 @@ def success
   if order &&
      params[:status].to_s.downcase == "success"
 
-   
-    # UPDATE ORDER STATUS
-   
-
     order.update!(
       status: "paid"
     )
@@ -88,10 +84,7 @@ def success
       "ORDER PAYMENT SUCCESSFUL: #{order.id}"
     )
 
-   
     # SEND ORDER CONFIRMED PUSH NOTIFICATION
-   
-
     if order.user_id.present?
       OrderConfirmedNotificationJob
         .set(wait: 3.seconds)
@@ -108,42 +101,6 @@ def success
         "❌ No user associated with order: #{order.id}"
       )
     end
-
-   
-    # SEND ORDER CONFIRMATION EMAIL
-   
-
-    user = User
-      .select(
-        :id,
-        :name,
-        :email
-      )
-      .find_by(
-        id: order.user_id
-      )
-
-    if user&.email.present?
-
-      UserMailer
-        .with(
-          user: user,
-          order: order
-        )
-        .order_confirmed
-        .deliver_now
-
-      Rails.logger.info(
-        "📧 ORDER CONFIRMATION EMAIL SENT TO: #{user.email}"
-      )
-
-    else
-
-      Rails.logger.info(
-        "No email found for order user: #{order.user_id}"
-      )
-
-    end
   end
 
   status = order ? order.status : "paid"
@@ -153,7 +110,6 @@ def success
     allow_other_host: true
   )
 end
-
 
   # GET/POST /api/v1/payments/failure
   def failure
