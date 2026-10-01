@@ -2,8 +2,9 @@ class Product < ApplicationRecord
   serialize :image_urls, coder: JSON
   serialize :variants, coder: JSON
   serialize :benefits, coder: JSON
-
-  # Temporary fields used only by ActiveAdmin form
+ has_many :cart_items,
+           dependent: :destroy
+ 
   attr_accessor :variant_names,
                 :variant_badges,
                 :variant_mrps,

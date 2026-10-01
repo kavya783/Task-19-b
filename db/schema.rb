@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_09_23_061458) do
+ActiveRecord::Schema[8.1].define(version: 2026_09_30_090232) do
   create_table "active_admin_comments", force: :cascade do |t|
     t.integer "author_id"
     t.string "author_type"
@@ -63,6 +63,31 @@ ActiveRecord::Schema[8.1].define(version: 2026_09_23_061458) do
     t.datetime "updated_at", null: false
     t.index ["email"], name: "index_admin_users_on_email", unique: true
     t.index ["reset_password_token"], name: "index_admin_users_on_reset_password_token", unique: true
+  end
+
+  create_table "cart_items", force: :cascade do |t|
+    t.integer "cart_id", null: false
+    t.datetime "created_at", null: false
+    t.integer "product_id", null: false
+    t.integer "quantity", default: 1, null: false
+    t.datetime "updated_at", null: false
+    t.integer "user_id"
+    t.index ["cart_id", "product_id"], name: "index_cart_items_on_cart_id_and_product_id", unique: true
+    t.index ["cart_id"], name: "index_cart_items_on_cart_id"
+    t.index ["product_id"], name: "index_cart_items_on_product_id"
+    t.index ["user_id"], name: "index_cart_items_on_user_id"
+  end
+
+  create_table "cart_tables", force: :cascade do |t|
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+  end
+
+  create_table "carts", force: :cascade do |t|
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.integer "user_id"
+    t.index ["user_id"], name: "index_carts_on_user_id"
   end
 
   create_table "categories", force: :cascade do |t|
@@ -165,6 +190,10 @@ ActiveRecord::Schema[8.1].define(version: 2026_09_23_061458) do
 
   add_foreign_key "active_storage_attachments", "active_storage_blobs", column: "blob_id"
   add_foreign_key "active_storage_variant_records", "active_storage_blobs", column: "blob_id"
+  add_foreign_key "cart_items", "carts"
+  add_foreign_key "cart_items", "products"
+  add_foreign_key "cart_items", "users"
+  add_foreign_key "carts", "users"
   add_foreign_key "device_tokens", "users"
   add_foreign_key "orders", "users"
 end

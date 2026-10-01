@@ -1,7 +1,8 @@
 class User < ApplicationRecord
 
-  has_many :orders, dependent: :nullify
-
+   has_many :orders, dependent: :nullify
+  has_one :cart, dependent: :destroy
+  has_many :cart_items, dependent: :destroy
   validates :phone, presence: true
 
   def self.ransackable_attributes(auth_object = nil)
