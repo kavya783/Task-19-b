@@ -7,11 +7,67 @@
 #   ["Action", "Comedy", "Drama", "Horror"].each do |genre_name|
 #     MovieGenre.find_or_create_by!(name: genre_name)
 #   end
+
+
 AdminUser.find_or_initialize_by(email: "admin@gmail.com").tap do |admin|
   admin.password = "Admin@123"
   admin.password_confirmation = "Admin@123"
   admin.save!
 end
+
+
+# CATEGORIES
+
+categories = [
+  "Hair",
+  "Baby",
+  "Face",
+  "Makeup",
+  "Body",
+  "Perfume",
+  "Facewash",
+  "Sunscreen",
+  "Facemask",
+  "Facecream",
+  "Serum",
+  "Scrub",
+  "Moisturizer",
+  "Shampoo",
+  "Hairoil",
+  "Conditioner",
+  "Hair Serum",
+  "Hairmask",
+  "Babywash",
+  "Babysoap",
+  "Bodylotion",
+  "Babyoil",
+  "Lipsticks",
+  "Kajal",
+  "Foundation",
+  "Compact",
+  "Lipbalm",
+  "Concealer",
+  "Best Sellers",
+  "Flash Sale",
+  "Gift Packs",
+  "New Launch",
+  "Baby Shampoo",
+  "Rice",
+  "Vitamin C",
+  "Ubtan",
+  "Rosemary",
+  "Beetroot",
+  "Onion",
+  "Kerala Thali"
+]
+
+categories.each do |category_name|
+  Category.find_or_create_by!(name: category_name)
+end
+
+puts "Imported #{categories.count} categories"
+
+
 require "json"
 
 products_file = Rails.root.join("products.json")
@@ -32,25 +88,4 @@ if File.exist?(products_file)
   puts "Imported #{products.count} products"
 else
   puts "products.json not found"
-end
-contents_file = Rails.root.join("contents.json")
-
-if File.exist?(contents_file)
-  contents = JSON.parse(File.read(contents_file))
-
-  contents.each do |content|
-    record = Content.find_or_initialize_by(id: content["id"])
-
-    content.each do |key, value|
-      next if ["id", "created_at", "updated_at"].include?(key)
-
-      record[key] = value
-    end
-
-    record.save!
-  end
-
-  puts "Imported #{contents.count} contents"
-else
-  puts "contents.json not found"
 end
