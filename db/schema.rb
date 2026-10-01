@@ -78,11 +78,6 @@ ActiveRecord::Schema[8.1].define(version: 2026_09_30_090232) do
     t.index ["user_id"], name: "index_cart_items_on_user_id"
   end
 
-  create_table "cart_tables", force: :cascade do |t|
-    t.datetime "created_at", null: false
-    t.datetime "updated_at", null: false
-  end
-
   create_table "carts", force: :cascade do |t|
     t.datetime "created_at", null: false
     t.datetime "updated_at", null: false
