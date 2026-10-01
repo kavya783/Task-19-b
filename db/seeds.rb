@@ -85,6 +85,8 @@ if File.exist?(products_file)
     end
   end
 
+  ActiveRecord::Base.connection.reset_pk_sequence!("products")
+
   puts "Imported #{products.count} products"
 else
   puts "products.json not found"
