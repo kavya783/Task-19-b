@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_09_30_090232) do
+ActiveRecord::Schema[8.1].define(version: 2026_10_05_120000) do
   create_table "active_admin_comments", force: :cascade do |t|
     t.integer "author_id"
     t.string "author_type"
@@ -102,6 +102,19 @@ ActiveRecord::Schema[8.1].define(version: 2026_09_30_090232) do
     t.string "subheading"
     t.datetime "updated_at", null: false
     t.index ["category"], name: "index_contents_on_category"
+  end
+
+  create_table "coupons", force: :cascade do |t|
+    t.boolean "active", default: true, null: false
+    t.string "code", null: false
+    t.datetime "created_at", null: false
+    t.text "details", null: false
+    t.integer "discount", default: 0, null: false
+    t.integer "minimum_amount", default: 0, null: false
+    t.string "saving", null: false
+    t.string "title", null: false
+    t.datetime "updated_at", null: false
+    t.index ["code"], name: "index_coupons_on_code", unique: true
   end
 
   create_table "device_tokens", force: :cascade do |t|

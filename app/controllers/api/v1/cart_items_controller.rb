@@ -1,7 +1,13 @@
 class Api::V1::CartItemsController < Api::BaseController
-
   def create
-    cart = Cart.find(params[:cart_id])
+    cart = Cart.find_by(id: params[:cart_id])
+
+    unless cart
+      render json: {
+        errors: [ "Cart not found. Please create a new cart." ]
+      }, status: :not_found
+      return
+    end
 
     cart_item = cart.cart_items.find_or_initialize_by(
       product_id: params[:product_id]
@@ -41,5 +47,4 @@ class Api::V1::CartItemsController < Api::BaseController
       message: "Cart item removed"
     }
   end
-
 end

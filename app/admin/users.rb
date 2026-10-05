@@ -1,5 +1,9 @@
+
 ActiveAdmin.register User do
   permit_params :phone, :name, :email
+
+  # Disable automatic filters
+  config.filters = false
 
   index do
     selectable_column
@@ -13,21 +17,21 @@ ActiveAdmin.register User do
     actions
   end
 
- controller do
-  def destroy
-    user = User.find(params[:id])
+  controller do
+    def destroy
+      user = User.find(params[:id])
 
-    # Delete user's device tokens
-    DeviceToken.where(user_id: user.id).delete_all
+      # Delete user's device tokens
+      DeviceToken.where(user_id: user.id).delete_all
 
-    # Delete user's orders
-    Order.where(user_id: user.id).delete_all
+      # Delete user's orders
+      Order.where(user_id: user.id).delete_all
 
-    # Delete user
-    user.destroy!
+      # Delete user
+      user.destroy!
 
-    redirect_to admin_users_path,
-                notice: "User and related orders deleted successfully."
+      redirect_to admin_users_path,
+                  notice: "User and related orders deleted successfully."
+    end
   end
-end
 end

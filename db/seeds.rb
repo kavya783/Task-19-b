@@ -67,6 +67,27 @@ end
 
 puts "Imported #{categories.count} categories"
 
+coupons = [
+  {
+    code: "REDEEM35",
+    title: "Get Upto 35% OFF + Extra FREEBIE",
+    saving: "Save ₹200 with this offer",
+    discount: 200,
+    minimum_amount: 0,
+    details: "Add any 2 Favorites to the cart & apply the code to get flat 30% OFF + Extra FREEBIE."
+  }
+]
+
+Coupon.where(code: %w[B3P2 B2G2]).destroy_all
+
+coupons.each do |attributes|
+  coupon = Coupon.find_or_initialize_by(code: attributes[:code])
+  coupon.assign_attributes(attributes)
+  coupon.save!
+end
+
+puts "Imported #{coupons.count} coupons"
+
 
 require "json"
 
@@ -78,14 +99,12 @@ if File.exist?(products_file)
   products.each do |product|
     Product.find_or_create_by!(id: product["id"]) do |p|
       product.each do |key, value|
-        next if ["id", "created_at", "updated_at"].include?(key)
+        next if [ "id", "created_at", "updated_at" ].include?(key)
 
         p[key] = value
       end
     end
   end
-
-  ActiveRecord::Base.connection.reset_pk_sequence!("products")
 
   puts "Imported #{products.count} products"
 else
