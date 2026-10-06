@@ -6,9 +6,11 @@ Rails.application.routes.draw do
   namespace :api do
     namespace :v1 do
 
+      # OTP
       post "send-otp", to: "otp#send_otp"
       post "verify-otp", to: "otp#verify_otp"
 
+      # PAYMENTS
       post "payments/create", to: "payments#create"
 
       match "payments/success",
@@ -33,11 +35,13 @@ Rails.application.routes.draw do
       delete "orders/:id",
              to: "orders#destroy"
 
+      # USERS
       patch "users/:id",
             to: "users#update"
 
       # CONTENTS
-      resources :contents, only: [:index]
+      resources :contents,
+                only: [:index]
 
       get "product-categories",
           to: "contents#product_categories"
@@ -45,6 +49,10 @@ Rails.application.routes.draw do
       # PRODUCTS
       resources :products,
                 only: [:index, :create, :update, :destroy]
+
+      # COUPONS
+      resources :coupons,
+                only: [:index]
 
       # CATEGORIES
       get "categories",
@@ -55,7 +63,9 @@ Rails.application.routes.draw do
                 only: [:create]
 
       # CART
-      resources :carts, only: [:show,:update, :create] do
+      resources :carts,
+                only: [:show, :update, :create] do
+
         resources :cart_items,
                   only: [:create, :update, :destroy]
       end
