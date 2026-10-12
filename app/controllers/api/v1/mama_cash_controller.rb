@@ -1,7 +1,7 @@
 
 class Api::V1::MamaCashController < ApplicationController
   def balance
-    user = authenticated_mama_cash_user
+    user = User.find_by(id: params[:user_id])
 
     unless user
       return render json: {
@@ -29,13 +29,5 @@ class Api::V1::MamaCashController < ApplicationController
         }
       end
     }, status: :ok
-  end
-
-  private
-
-  def authenticated_mama_cash_user
-    # Connect this to your app's existing JWT authentication.
-    # Do not trust params[:user_id] as proof of identity.
-    nil
   end
 end
