@@ -26,8 +26,7 @@ Rails.application.routes.draw do
           get "orders/:order_id/invoice",
     to: "invoices#show",
     as: :order_invoice
-      get "mama-cash/balance", to: "mama_cash#balance"
-      get "api/v1/mama-cash/balance", to: "mama_cash#balance"
+get "mama-cash/balance", to: "mama_cash#balance"
       # SELLER ORDERS
       get "seller/orders",
           to: "orders#seller_orders"
