@@ -1,24 +1,24 @@
+
 class Api::V1::MamaCashController < ApplicationController
   def balance
-    user = User.find_by(id: params[:user_id])
+    user = current_user
 
     unless user
       return render json: {
         success: false,
-        message: "User not found"
-      }, status: :not_found
+        error: "Please log in"
+      }, status: :unauthorized
     end
 
     transactions = MamaCashTransaction
       .where(user_id: user.id)
       .order(created_at: :desc)
 
-   
-balance = MamaCashTransaction.available_balance_for(user.id)
+    balance = MamaCashTransaction.available_balance_for(user.id)
 
-render json: {
-  success: true,
-  balance: balance.round(2),
+    render json: {
+      success: true,
+      balance: balance.to_d.round(2),
       transactions: transactions.limit(50).map do |transaction|
         {
           id: transaction.id,
