@@ -1,3 +1,4 @@
+
 class MamaCashTransaction < ApplicationRecord
   belongs_to :user
   belongs_to :order, optional: true
@@ -5,7 +6,11 @@ class MamaCashTransaction < ApplicationRecord
   TRANSACTION_TYPES = %w[earned redeemed].freeze
   STATUSES = %w[pending completed failed].freeze
 
+  # Available balance =
+  # Completed earnings - completed redemptions - pending reservations
   def self.available_balance_for(user_id)
+    return BigDecimal("0") if user_id.blank?
+
     earned = where(
       user_id: user_id,
       transaction_type: "earned",
@@ -25,7 +30,9 @@ class MamaCashTransaction < ApplicationRecord
       orders: { status: "pending" }
     ).sum(:amount)
 
-    [earned - redeemed - reserved, BigDecimal("0")].max
+    balance = earned - redeemed - reserved
+
+    [balance, BigDecimal("0")].max
   end
 
   validates :transaction_type,
@@ -42,7 +49,8 @@ class MamaCashTransaction < ApplicationRecord
   private
 
   def order_belongs_to_user
-    return unless order && user_id != order.user_id
+    return if order.blank?
+    return if order.user_id == user_id
 
     errors.add(:order, "must belong to the same user")
   end
