@@ -23,6 +23,20 @@ def create
     }, status: :unprocessable_entity
   end
 
+  begin
+    mama_cash_used = BigDecimal(params[:mama_cash_used].presence || "0")
+  rescue ArgumentError, TypeError
+    return render json: {
+      error: "Invalid MamaCash amount"
+    }, status: :unprocessable_entity
+  end
+
+  unless mama_cash_used.finite? && mama_cash_used >= 0
+    return render json: {
+      error: "Invalid MamaCash amount"
+    }, status: :unprocessable_entity
+  end
+
   # ============================================================
   # PAYMENT DETAILS
   # ============================================================
@@ -56,20 +70,6 @@ def create
     normalize_items(params[:items])
 
   # ============================================================
-  # SAVE ORDER
-  # ============================================================
-
-  Order.create!(
-    user_id: user.id,
-    txnid: txnid,
-    amount: amount,
-    items: JSON.generate(
-      normalized_items
-    ),
-    status: "pending"
-  )
-
-  # ============================================================
   # GENERATE PAYU HASH
   # ============================================================
 
@@ -80,6 +80,45 @@ def create
     firstname: firstname,
     email: email
   )
+
+  # ============================================================
+  # SAVE ORDER
+  # ============================================================
+
+  order = nil
+
+  user.with_lock do
+    available_balance =
+      MamaCashTransaction.available_balance_for(user.id)
+
+    if mama_cash_used > available_balance
+      return render json: {
+        error: "Insufficient MamaCash balance"
+      }, status: :unprocessable_entity
+    end
+
+    ActiveRecord::Base.transaction do
+      order = Order.create!(
+        user_id: user.id,
+        txnid: txnid,
+        amount: amount,
+        items: JSON.generate(
+          normalized_items
+        ),
+        status: "pending"
+      )
+
+      if mama_cash_used.positive?
+        MamaCashTransaction.create!(
+          user_id: user.id,
+          order_id: order.id,
+          transaction_type: "redeemed",
+          amount: mama_cash_used,
+          status: "pending"
+        )
+      end
+    end
+  end
 
   # ============================================================
   # RESPONSE
@@ -100,70 +139,122 @@ def create
 end
     # GET/POST /api/v1/payments/success
   
+
 def success
-  Rails.logger.info(
-    "PAYU SUCCESS RESPONSE: #{params.to_unsafe_h}"
-  )
+  order = Order.find_by(txnid: params[:txnid])
 
-  order = Order
-    .select(
-      :id,
-      :txnid,
-      :status,
-      :user_id,
-      :amount
+  unless order
+    Rails.logger.warn("PayU callback received for unknown transaction")
+    return redirect_to(
+      "#{frontend_url}/payment-failure",
+      allow_other_host: true
     )
-    .find_by(
-      txnid: params[:txnid]
+  end
+
+  # Verify PayU callback hash before trusting its status.
+  unless PayuService.verify_response_hash(params)
+    Rails.logger.warn("PayU callback hash verification failed")
+    return redirect_to(
+      "#{frontend_url}/payment-failure",
+      allow_other_host: true
     )
+  end
 
-  if order &&
-     params[:status].to_s.downcase == "success"
+  # Ensure the callback amount matches the saved order amount.
+  callback_amount = BigDecimal(params[:amount].to_s)
+  order_amount = BigDecimal(order.amount.to_s)
 
-    order.update!(
-      status: "paid"
+  unless callback_amount == order_amount
+    Rails.logger.warn("PayU callback amount mismatch for order #{order.id}")
+    return redirect_to(
+      "#{frontend_url}/payment-failure",
+      allow_other_host: true
     )
+  end
 
-    Rails.logger.info(
-      "ORDER PAYMENT SUCCESSFUL: #{order.id}"
+  unless params[:status].to_s.downcase == "success"
+    return redirect_to(
+      "#{frontend_url}/payment-failure",
+      allow_other_host: true
     )
+  end
 
-    # SEND ORDER CONFIRMED PUSH NOTIFICATION
+  reward_amount = (order_amount * BigDecimal("0.10")).round(2)
+
+  begin
+    order.with_lock do
+      # Prevent duplicate rewards if PayU calls this endpoint again.
+      unless order.status == "paid"
+        ActiveRecord::Base.transaction do
+          order.update!(status: "paid")
+          MamaCashTransaction.where(
+            order_id: order.id,
+            transaction_type: "redeemed",
+            status: "pending"
+          ).update_all(status: "completed", updated_at: Time.current)
+
+          if order.user_id.present? && reward_amount.positive?
+            MamaCashTransaction.create!(
+              user_id: order.user_id,
+              order_id: order.id,
+              transaction_type: "earned",
+              amount: reward_amount,
+              status: "completed"
+            )
+          end
+        end
+      end
+    end
+
     if order.user_id.present?
       OrderConfirmedNotificationJob
         .set(wait: 3.seconds)
-        .perform_later(
-          order.user_id,
-          order.id
-        )
-
-      Rails.logger.info(
-        "🔔 ORDER CONFIRMATION NOTIFICATION ENQUEUED FOR USER: #{order.user_id}"
-      )
-    else
-      Rails.logger.info(
-        "❌ No user associated with order: #{order.id}"
-      )
+        .perform_later(order.user_id, order.id)
     end
+
+    redirect_to(
+      "#{frontend_url}/payment-success?status=paid",
+      allow_other_host: true
+    )
+  rescue ActiveRecord::RecordNotUnique
+    # The unique earned-per-order index prevents duplicate rewards.
+    Rails.logger.info("MamaCash reward already exists for order #{order.id}")
+
+    redirect_to(
+      "#{frontend_url}/payment-success?status=paid",
+      allow_other_host: true
+    )
+  rescue StandardError => error
+    Rails.logger.error(
+      "Payment callback processing failed for order #{order.id}: #{error.class}"
+    )
+
+    redirect_to(
+      "#{frontend_url}/payment-failure",
+      allow_other_host: true
+    )
   end
-
-  status = order ? order.status : "paid"
-
-  redirect_to(
-    "#{frontend_url}/payment-success?status=#{ERB::Util.url_encode(status)}",
-    allow_other_host: true
-  )
 end
+
 
     # GET/POST /api/v1/payments/failure
     def failure
       Rails.logger.info "PAYU FAILURE RESPONSE: #{params.to_unsafe_h}"
 
-      order = Order
-        .select(:id)
-        .find_by(txnid: params[:txnid])
+      order = Order.find_by(txnid: params[:txnid])
 
-      order&.update!(status: "failed")
+      if order&.status == "pending"
+        order.with_lock do
+          if order.status == "pending"
+            order.update!(status: "failed")
+            MamaCashTransaction.where(
+              order_id: order.id,
+              transaction_type: "redeemed",
+              status: "pending"
+            ).update_all(status: "failed", updated_at: Time.current)
+          end
+        end
+      end
 
       redirect_to(
         "#{frontend_url}/payment-failure",

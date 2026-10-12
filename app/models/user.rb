@@ -4,7 +4,7 @@ class User < ApplicationRecord
   has_one :cart, dependent: :destroy
   has_many :cart_items, dependent: :destroy
   validates :phone, presence: true
-
+has_many :mama_cash_transactions, dependent: :restrict_with_error
   def self.ransackable_attributes(auth_object = nil)
     [
       "id",

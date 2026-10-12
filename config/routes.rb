@@ -1,4 +1,5 @@
 Rails.application.routes.draw do
+  get "invoices/show"
   devise_for :admin_users, ActiveAdmin::Devise.config
 
   ActiveAdmin.routes(self)
@@ -6,11 +7,9 @@ Rails.application.routes.draw do
   namespace :api do
     namespace :v1 do
 
-      # OTP
       post "send-otp", to: "otp#send_otp"
       post "verify-otp", to: "otp#verify_otp"
 
-      # PAYMENTS
       post "payments/create", to: "payments#create"
 
       match "payments/success",
@@ -24,7 +23,10 @@ Rails.application.routes.draw do
       # USER ORDERS
       get "users/:user_id/orders",
           to: "orders#index"
-
+          get "orders/:order_id/invoice",
+    to: "invoices#show",
+    as: :order_invoice
+      get "mama-cash/balance", to: "mama_cash#balance"
       # SELLER ORDERS
       get "seller/orders",
           to: "orders#seller_orders"
@@ -35,13 +37,12 @@ Rails.application.routes.draw do
       delete "orders/:id",
              to: "orders#destroy"
 
-      # USERS
       patch "users/:id",
             to: "users#update"
 
       # CONTENTS
-      resources :contents,
-                only: [:index]
+      resources :contents, only: [:index]
+      resources :coupons, only: [:index]
 
       get "product-categories",
           to: "contents#product_categories"
@@ -49,10 +50,6 @@ Rails.application.routes.draw do
       # PRODUCTS
       resources :products,
                 only: [:index, :create, :update, :destroy]
-
-      # COUPONS
-      resources :coupons,
-                only: [:index]
 
       # CATEGORIES
       get "categories",
@@ -63,9 +60,7 @@ Rails.application.routes.draw do
                 only: [:create]
 
       # CART
-      resources :carts,
-                only: [:show, :update, :create] do
-
+      resources :carts, only: [:show,:update, :create] do
         resources :cart_items,
                   only: [:create, :update, :destroy]
       end

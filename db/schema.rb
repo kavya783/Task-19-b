@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_10_05_120000) do
+ActiveRecord::Schema[8.1].define(version: 2026_10_12_062537) do
   create_table "active_admin_comments", force: :cascade do |t|
     t.integer "author_id"
     t.string "author_type"
@@ -126,10 +126,24 @@ ActiveRecord::Schema[8.1].define(version: 2026_10_05_120000) do
     t.index ["user_id"], name: "index_device_tokens_on_user_id"
   end
 
+  create_table "mama_cash_transactions", force: :cascade do |t|
+    t.decimal "amount", precision: 10, scale: 2, null: false
+    t.datetime "created_at", null: false
+    t.integer "order_id"
+    t.string "status", default: "pending", null: false
+    t.string "transaction_type", null: false
+    t.datetime "updated_at", null: false
+    t.integer "user_id", null: false
+    t.index ["order_id", "transaction_type"], name: "index_unique_earned_mamacash_per_order", unique: true, where: "order_id IS NOT NULL AND transaction_type = 'earned'"
+    t.index ["order_id"], name: "index_mama_cash_transactions_on_order_id"
+    t.index ["user_id"], name: "index_mama_cash_transactions_on_user_id"
+  end
+
   create_table "orders", force: :cascade do |t|
     t.decimal "amount", precision: 10, scale: 2, null: false
     t.datetime "created_at", null: false
     t.text "items", default: "[]", null: false
+    t.decimal "mama_cash_used", precision: 10, scale: 2, default: "0.0", null: false
     t.string "status", default: "pending", null: false
     t.string "txnid", null: false
     t.datetime "updated_at", null: false
@@ -203,5 +217,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_10_05_120000) do
   add_foreign_key "cart_items", "users"
   add_foreign_key "carts", "users"
   add_foreign_key "device_tokens", "users"
+  add_foreign_key "mama_cash_transactions", "orders"
+  add_foreign_key "mama_cash_transactions", "users"
   add_foreign_key "orders", "users"
 end
